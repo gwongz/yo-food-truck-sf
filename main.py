@@ -8,9 +8,13 @@ import oauth2
 import requests
 from flask import request, Flask, redirect
 from helpers import *
-# import config 
+# import keys
 # from redis import Redis
 # redis = Redis()
+ON_DEV = os.environ.get('HEROKU') is None
+
+if ON_DEV:
+    import keys 
 
 
 app = Flask(__name__)
@@ -22,13 +26,13 @@ SF_SCHEDULE = 'jjew-r69b.json'
 SF_LOCATION = 'rqzj-sfat.json'
 
 GOOGLE_API = 'https://maps.googleapis.com/'
-GOOGLE_API_KEY = config.google_api_key
+GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', keys.google_api_key)
 
 GOOGLE_TIMEZONE = 'maps/api/timezone/json'
 GOOGLE_PLACES_SEARCH = 'maps/api/place/nearbysearch/json'
 GOOGLE_PLACES_DETAIL = 'maps/api/place/details/json'
 
-# YO_API_TOKEN = os.environ.get('YO_API_TOKEN', config.yo_api_token)
+# YO_API_TOKEN = os.environ.get('YO_API_TOKEN', keys.yo_api_token)
 
 YELP_API_HOST = 'http://api.yelp.com'
 SEARCH_LIMIT = 1
