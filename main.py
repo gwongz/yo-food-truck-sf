@@ -1,3 +1,4 @@
+import os
 import time
 import calendar
 import datetime
@@ -7,7 +8,7 @@ import oauth2
 import requests
 from flask import request, Flask, redirect
 from helpers import *
-import config 
+# import config 
 # from redis import Redis
 # redis = Redis()
 
@@ -27,17 +28,17 @@ GOOGLE_TIMEZONE = 'maps/api/timezone/json'
 GOOGLE_PLACES_SEARCH = 'maps/api/place/nearbysearch/json'
 GOOGLE_PLACES_DETAIL = 'maps/api/place/details/json'
 
-YO_API_TOKEN = config.yo_api_token
+# YO_API_TOKEN = os.environ.get('YO_API_TOKEN', config.yo_api_token)
 
 YELP_API_HOST = 'http://api.yelp.com'
 SEARCH_LIMIT = 1
 SEARCH_PATH = '/v2/search/'
 BUSINESS_PATH = '/v2/business/'
 
-YELP_CONSUMER_KEY = config.yelp_consumer_key 
-YELP_CONSUMER_SECRET = config.yelp_consumer_secret 
-YELP_TOKEN = config.yelp_token 
-YELP_TOKEN_SECRET = config.yelp_token_secret 
+# YELP_CONSUMER_KEY = config.yelp_consumer_key 
+# YELP_CONSUMER_SECRET = config.yelp_consumer_secret 
+# YELP_TOKEN = config.yelp_token 
+# YELP_TOKEN_SECRET = config.yelp_token_secret 
 
 def set_lookup_dow(local_now):
     # determine what day of the week we should be searching schedule for
@@ -248,8 +249,8 @@ def test():
     link = clean_link(truck_link)
     return redirect(link, code=302)
 
-@app.route("/")
-def home():
+@app.route("/yo")
+def post_yo():
 
     # extract and parse query parameters
     username = request.args.get('username')
@@ -268,6 +269,13 @@ def home():
    
     return 'Ok'
 
+@app.route("/")
+def home():
+    return 'Ok'
+
 if __name__ == "__main__":
-    app.debug = True
-    app.run(host="0.0.0.0", port=5000)
+#     app.debug = True
+#     port = int(os.environ.get('PORT', 5000))
+    # app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
+
