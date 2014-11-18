@@ -236,6 +236,11 @@ def test():
     # 24 Buchanan Street
     latitude = 37.7697211
     longitude = -122.4265952
+
+    # ferry building
+    latitude = 37.795548
+    longitude = -122.393413
+    
     dow = lookup_timezone(latitude=latitude,longitude=longitude)
     scheduled_trucks = find_scheduled_trucks(dow)
     check_against_list = check_proximity(scheduled_trucks, latitude, longitude)
