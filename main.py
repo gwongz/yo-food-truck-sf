@@ -11,7 +11,7 @@ from helpers import *
 # import keys
 # from redis import Redis
 # redis = Redis()
-ON_DEV = os.environ.get('HEROKU') is None
+ON_DEV = not os.environ.get('HEROKU')
 
 if ON_DEV:
     import keys 
@@ -32,17 +32,17 @@ GOOGLE_TIMEZONE = 'maps/api/timezone/json'
 GOOGLE_PLACES_SEARCH = 'maps/api/place/nearbysearch/json'
 GOOGLE_PLACES_DETAIL = 'maps/api/place/details/json'
 
-# YO_API_TOKEN = os.environ.get('YO_API_TOKEN', keys.yo_api_token)
+YO_API_TOKEN = os.environ.get('YO_API_TOKEN', keys.yo_api_token)
 
 YELP_API_HOST = 'http://api.yelp.com'
 SEARCH_LIMIT = 1
 SEARCH_PATH = '/v2/search/'
 BUSINESS_PATH = '/v2/business/'
 
-# YELP_CONSUMER_KEY = config.yelp_consumer_key 
-# YELP_CONSUMER_SECRET = config.yelp_consumer_secret 
-# YELP_TOKEN = config.yelp_token 
-# YELP_TOKEN_SECRET = config.yelp_token_secret 
+YELP_CONSUMER_KEY = os.environ.get('YELP_CONSUMER_KEY', keys.yelp_consumer_key) 
+YELP_CONSUMER_SECRET = os.environ.get('YELP_CONSUMER_SECRET', keys.yelp_consumer_secret) 
+YELP_TOKEN = os.environ.get('YELP_TOKEN', keys.yelp_token) 
+YELP_TOKEN_SECRET = os.environ.get('YELP_TOKEN_SECRET', keys.yelp_token_secret) 
 
 def set_lookup_dow(local_now):
     # determine what day of the week we should be searching schedule for
