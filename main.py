@@ -5,12 +5,9 @@ from dateutil.relativedelta import relativedelta
 
 import oauth2
 import requests
-from flask import request, Flask
-from bs4 import BeautifulSoup
+from flask import request, Flask, redirect
 from helpers import *
 import config 
-  
-import redis
 # from redis import Redis
 # redis = Redis()
 
@@ -46,13 +43,8 @@ def set_lookup_dow(local_now):
     # determine what day of the week we should be searching schedule for
     dow = local_now.strftime('%A')
     hour = local_now.strftime('%H')
-    # minute = local_now.strftime('%M')
-
-    print dow
-    print hour
-    # print minute 
-
-    # TODO: if they make a request past 9 pm, return open trucks for next day
+    minute = local_now.strftime('%M')
+    # TODO: filter on open and closing time 
     if hour > 21:
         index = local_now.weekday() + 1 
         dow = index_to_day_names_map[index]
@@ -65,21 +57,14 @@ def lookup_timezone(latitude, longitude):
         'timestamp': calendar.timegm(time.gmtime()),
         'key': GOOGLE_API_KEY,
     }
-
     response_object = make_request(host=GOOGLE_API, path=GOOGLE_TIMEZONE, url_params=params)
 
     utc_now = datetime.datetime.utcnow()
     offset = response_object.get('dstOffset') + response_object.get('rawOffset')
     local_now = utc_now + relativedelta(seconds=offset)
-
-
     print 'local time'
     print local_now
-
-
     return set_lookup_dow(local_now)
-
-    
 
 def find_scheduled_trucks(dow):
 
@@ -88,28 +73,16 @@ def find_scheduled_trucks(dow):
         'coldtruck': 'N',
         '$limit': '50000', # we want all of them
     }
-
     response_object = make_request(host=DATA_SF, path=SF_SCHEDULE, url_params=url_params)
-
     # all the location_ids for doing geosearch
-    if len(response_object) > 0:
-        # locations = [x.get('locationid') for x in response_object]
-        # print locations 
-        # result = locations
-        result = response_object 
+    if len(response_object) == 0:
+        # TODO: handle no results case  
+        pass
 
-
-    else:
-        result = None
-        # do some error failure or widen the search?
-
-
-    return result
-
+    return response_object
 
 def make_request(host, path='', url_params=None):
-    """ Makes API requests and returns json response as python object """
-    
+    """ Make API requests and return json response as python object """
     url = '{0}{1}'.format(host, path)
     response = requests.get(url, params=url_params)
     return response.json()
@@ -130,10 +103,7 @@ def make_signed_request(host, path='', url_params=None):
     token = oauth2.Token(YELP_TOKEN, YELP_TOKEN_SECRET)
     oauth_request.sign_request(oauth2.SignatureMethod_HMAC_SHA1(), consumer, token)
     signed_url = oauth_request.to_url()
-
     print 'Querying Yelp {0}'.format(signed_url)
-
-
     response = requests.get(signed_url)
     return response.json()
 
@@ -164,15 +134,8 @@ def lookup_place_details(places_list):
 
 def search_google_places(latitude, longitude, name):
     """ Get the business link for the food truck that we are looking for """
-    # location = str(latitude) + ',' + str(longitude)
     location = fmt_location(latitude, longitude)
-    # name = query.split(' ');
-    print 'this is the name being searched!!!!!!!'
-    print name
-
-    # converting name: 
-    name = name.split(' ')
-    name = '+'.join(name)
+    name = fmt_name(name)
 
     url_params = {
         'name': name,
@@ -181,26 +144,17 @@ def search_google_places(latitude, longitude, name):
         'location': location,
         'radius': 3200,
     }
-    print url_params
     place_url = []
-    
-    # place_objects = requests.get(GOOGLE_PLACES_API, params=url_params)
     place_objects = make_request(host=GOOGLE_API, path=GOOGLE_PLACES_SEARCH, url_params=url_params)
     places_list = place_objects.get('results')
 
-    print 'GOOGLE PLACE RESULTS'
-    print len(places_list)
     print place_objects
-
     if len(place_list) > 0:
         place_url = lookup_place_details(places_list)
-
     return place_url
 
 def filter_yelp_results(response_object, term):
     place_url = []
-    print 'this is the yelp response'
-    print response_object.get('businesses')
     yelp_businesses = response_object.get('businesses')
     for business in yelp_businesses:
         if place_url != []:
@@ -212,8 +166,6 @@ def filter_yelp_results(response_object, term):
 
 def search_yelp(term, latitude=None, longitude=None, city='San Francisco', offset=0, limit=20):
     """ Given an array of response objects, find the one with the highest yelp rating """
-    # search for food trucks using Yelp api
-  
     url_params = {
         'term': term,
         'location': city,
@@ -221,7 +173,6 @@ def search_yelp(term, latitude=None, longitude=None, city='San Francisco', offse
         # 'cll': str(latitude) + ',' + str(longitude),
         'limit': limit,
         'sort': 0, # best matched
-        # 'radius_filter': 3200
     }
     response_object = make_signed_request(host=YELP_API_HOST, path=SEARCH_PATH, url_params=url_params)
     place_url = filter_yelp_results(response_object, term)
@@ -229,13 +180,12 @@ def search_yelp(term, latitude=None, longitude=None, city='San Francisco', offse
 
 def find_truck_website(check_against_list):
     """ Given a list of food truck names, find the best link for them via Yelp or Google """
-
     for truck in check_against_list:
         "Use Yelp API to make sure it is still open"
+        # TODO: don't hardcode city
         place_url = search_yelp(term=truck.get('name'))
         if place_url != []:
             return place_url[0]
-       
 
     for truck in check_against_list:
         latitude = truck.get('latitude')
@@ -244,29 +194,22 @@ def find_truck_website(check_against_list):
         place_url = search_google_places(latitude=latitude, longitude=longitude, name=name)
         if place_url != []:
             return place_url[0]
-        # keep searching for a truck with a website
-    # if none of these food trucks has a website:
+    # not a single truck from query results has yelp profile or google places profile 
     raise Exception('Unable to find a link for trucks')
 
 
 def check_proximity(scheduled_trucks, latitude, longitude, radius=1600):
     where = fmt_where_constraint(latitude, longitude, radius)
-    
     url_params = {
         '$where': where,
         'status': 'approved'
     }
     nearby_trucks = make_request(host=DATA_SF, path=SF_LOCATION, url_params=url_params)
-    print 'Finding nearby foodtrucks'
-
     nearby_ids = [x.get('objectid') for x in nearby_trucks]
     schedule_ids = [x.get('locationid') for x in scheduled_trucks]
-    print 'Number of trucks nearby'
-    print len(nearby_ids)
-
     check_against_list = [] # a list of dictionaries 
-
     nearby_and_scheduled = set(nearby_ids) & set(schedule_ids)
+
     if len(nearby_and_scheduled) > 0:
         print 'There are trucks that are nearby and are scheduled for today '
         for truck in nearby_trucks:
@@ -281,23 +224,16 @@ def check_proximity(scheduled_trucks, latitude, longitude, radius=1600):
         # these are trucks that are scheduled for today but not nearby 
         for truck in locations:
             check_against_list.append({'name': truck['applicant']})
-
     else:
-        # handle edge case if there are no trucks scheduled for today in sf 
+        # handle edge case if there are no trucks scheduled for the day 
         pass 
 
     return check_against_list
 
-
-
-
-
-
-
 @app.route("/test")
 def test():
     # test the app with hardcoded location 
-    # 8 Buchanan Street
+    # 24 Buchanan Street
     latitude = 37.7697211
     longitude = -122.4265952
     dow = lookup_timezone(latitude=latitude,longitude=longitude)
@@ -305,13 +241,7 @@ def test():
     check_against_list = check_proximity(scheduled_trucks, latitude, longitude)
     truck_link = find_truck_website(check_against_list)
     link = clean_link(truck_link)
-
-    requests.post("http://api.justyo.co/yo/", data={'api_token': YO_API_TOKEN, 'username': 'pumpkintrain', 'link': link})
-   
-    return 'Ok'
-
-
-
+    return redirect(link, code=302)
 
 @app.route("/")
 def home():
@@ -323,14 +253,12 @@ def home():
     print location 
     latitude = location.split(';')[0]
     longitude = location.split(';')[1]
-    
     dow = lookup_timezone(latitude=latitude, longitude=longitude)
     scheduled_trucks = find_scheduled_trucks(dow)
     # filtered for proximity 
     check_against_list = check_proximity(scheduled_trucks, latitude, longitude)
     truck_link = find_truck_website(check_against_list)
     link = clean_link(truck_link)
-
     requests.post("http://api.justyo.co/yo/", data={'api_token': YO_API_TOKEN, 'username': username, 'link': link})
    
     return 'Ok'

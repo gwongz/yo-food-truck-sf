@@ -21,6 +21,11 @@ def fmt_where_constraint(latitude, longitude, radius):
 	where = ['within_circle(location,', str(latitude), ',', str(longitude), ',', str(radius), ')']
 	return ''.join(where)
 
+def fmt_name(name):
+	""" Splits food truck name into query string parameters """
+	name = name.split(' ')
+	return '+'.join(name)
+
 def clean_link(link):
 	""" Scrape Yelp page for business website or return website from Google Places API """
 	if 'yelp' in link:
