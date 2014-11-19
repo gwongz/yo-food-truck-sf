@@ -4,3 +4,4 @@ env*
 *.pyc
 sf_api.txt
 .DS_Store
+.env

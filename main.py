@@ -12,11 +12,8 @@ from helpers import *
 # from redis import Redis
 # redis = Redis()
 ON_DEV = not os.environ.get('HEROKU')
-from werkzeug.contrib.fixers import ProxyFix
 
 
-if ON_DEV:
-    import keys 
 
 
 app = Flask(__name__)
