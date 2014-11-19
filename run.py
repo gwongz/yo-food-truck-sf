@@ -1,4 +1,8 @@
 # from app import app
 # app.run(debug=True)
+import os
 from simpleapp import simpleapp
-simpleapp.run(debug=True)
+
+port = int(os.environ.get('PORT', 5000))
+simpleapp.run(port=port, debug=True)
+ 
