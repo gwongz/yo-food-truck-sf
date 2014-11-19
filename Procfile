@@ -1,1 +1,1 @@
-web: gunicorn run-p:app
+web: gunicorn runp-heroku:app
