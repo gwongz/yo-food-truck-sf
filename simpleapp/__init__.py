@@ -4,6 +4,3 @@ app = Flask(__name__)
 
 from simpleapp import views
 
-@app.route('/')
-def home():
-    return 'Ok'
