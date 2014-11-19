@@ -153,7 +153,6 @@ def search_google_places(latitude, longitude, name):
     place_objects = make_request(host=GOOGLE_API, path=GOOGLE_PLACES_SEARCH, url_params=url_params)
     places_list = place_objects.get('results')
 
-    print place_objects
     if len(place_list) > 0:
         place_url = lookup_place_details(places_list)
     return place_url
@@ -249,6 +248,7 @@ def test():
     dow = lookup_timezone(latitude=latitude,longitude=longitude)
     scheduled_trucks = find_scheduled_trucks(dow)
     check_against_list = check_proximity(scheduled_trucks, latitude, longitude)
+    print 'made it to check against list!!!!!!!!'
     truck_link = find_truck_website(check_against_list)
     link = clean_link(truck_link)
     return redirect(link, code=302)
@@ -276,8 +276,3 @@ def post_yo():
 @app.route('/')
 def home():
     return 'Ok'
-
-# if __name__ == '__main__':
-#     port = int(os.environ.get('PORT', 5000))
-#     app.run(host="0.0.0.0", port=port, debug=True)
-
