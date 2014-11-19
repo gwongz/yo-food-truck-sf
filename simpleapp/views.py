@@ -1,5 +1,2 @@
-from simpleapp import simpleapp
+from main import simpleapp
 
-@simpleapp.route('/')
-def home():
-    return 'Ok'
