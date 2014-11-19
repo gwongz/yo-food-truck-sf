@@ -32,7 +32,7 @@ def clean_link(link):
 		print 'parsing yelp html'
 		response = requests.get(link)
 		content = response.content
-		soup = BeautifulSoup(content.read())
+		soup = BeautifulSoup(content)
 		div = soup.findAll('div',{'class':'biz-website'})
 		if len(div) > 0:
 		    link = div[0].find('a').text
