@@ -4,5 +4,5 @@ import os
 from simpleapp import simpleapp
 
 port = int(os.environ.get('PORT', 5000))
-simpleapp.run(port=port, debug=True)
+simpleapp.run(host='0.0.0.0', port=port, debug=True)
  

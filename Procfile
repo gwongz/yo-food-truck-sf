@@ -1,1 +1,1 @@
-web: gunicorn run:simpleapp --preload
+web: python run.py
