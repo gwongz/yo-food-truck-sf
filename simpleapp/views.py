@@ -1,5 +1,5 @@
-from simpleapp import app
+from simpleapp import simpleapp
 
-@app.route('/')
+@simpleapp.route('/')
 def home():
     return 'Ok'
