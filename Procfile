@@ -1,1 +1,1 @@
-web: waitress-serve --port=$PORT run.py
+web: gunicorn run:app
