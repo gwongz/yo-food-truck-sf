@@ -20,7 +20,6 @@ if ON_DEV:
 
 
 app = Flask(__name__)
-app.wsgi_app = ProxyFix(app.wsgi_app)
 
 # api tokens and paths
 
