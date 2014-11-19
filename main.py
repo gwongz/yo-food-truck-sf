@@ -235,7 +235,7 @@ def check_proximity(scheduled_trucks, latitude, longitude, radius=1600):
 
     return check_against_list
 
-@app.route("/test")
+@app.route('/test')
 def test():
     # test the app with hardcoded location 
     # 24 Buchanan Street
@@ -253,7 +253,7 @@ def test():
     link = clean_link(truck_link)
     return redirect(link, code=302)
 
-@app.route("/yo")
+@app.route('/yo')
 def post_yo():
 
     # extract and parse query parameters
@@ -273,11 +273,11 @@ def post_yo():
    
     return 'Ok'
 
-@app.route("/")
+@app.route('/')
 def home():
     return 'Ok'
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
 
