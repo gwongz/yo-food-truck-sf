@@ -1,1 +1,1 @@
-web: waitress-serve --port=$PORT simpleapp/main.py
+web: waitress-serve --port=$PORT run.py
