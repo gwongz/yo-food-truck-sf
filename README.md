@@ -1,7 +1,7 @@
 Food Truck SF
 =============
 
-[Yo](www.justyo.co/) your location and you'll receive a food truck that's located nearby - IN PROGRESS
+[Yo](https://www.justyo.co/) your location and you'll receive a food truck that's located nearby - IN PROGRESS
 
 Overview
 --------
