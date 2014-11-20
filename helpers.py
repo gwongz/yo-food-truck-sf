@@ -3,13 +3,11 @@ import time
 import calendar
 import datetime
 
-
 from dateutil.relativedelta import relativedelta
 from bs4 import BeautifulSoup
 import requests 
 import oauth2
 from store import redis
-
 
 
 DATA_SF = 'http://data.sfgov.org/resource/'
@@ -24,7 +22,6 @@ GOOGLE_PLACES_SEARCH = 'maps/api/place/nearbysearch/json'
 GOOGLE_PLACES_DETAIL = 'maps/api/place/details/json'
 
 YELP_API_HOST = 'http://api.yelp.com'
-SEARCH_LIMIT = 1
 SEARCH_PATH = '/v2/search/'
 BUSINESS_PATH = '/v2/business/'
 
@@ -69,11 +66,10 @@ def clean_link(link):
         div = soup.findAll('div',{'class':'biz-website'})
         if len(div) > 0:
             link = div[0].find('a').text
-            # should use better regex, link could start with www
+            # TODO: use regex, link could start with www
             if not link.startswith('http'):
                 link = 'http://www.' + link
     return link 
-
 
 
 def make_request(host, path='', url_params=None, signed=False):
@@ -99,10 +95,8 @@ def make_request(host, path='', url_params=None, signed=False):
     return response.json()
 
 
-
-
 def get_timezone(latitude, longitude):
-
+    """ Get a user's timezone from their latitude and longitude """
     params = {
         'location': fmt_location(latitude, longitude),
         'timestamp': calendar.timegm(time.gmtime()),
@@ -116,7 +110,7 @@ def get_timezone(latitude, longitude):
     return set_lookup_dow(local_now)
 
 def set_lookup_dow(local_now):
-    # determine what day of the week we should be searching schedule for
+    """ Return which day of the week we should be searching food truck schedule for """
     dow = local_now.strftime('%A')
     hour = local_now.strftime('%H')
     minute = local_now.strftime('%M')
@@ -127,6 +121,7 @@ def set_lookup_dow(local_now):
     return dow 
 
 def get_scheduled(dow):
+    """ Query for food trucks that are scheduled for given day of week """
     url_params = {
         'dayofweekstr': dow,
         'coldtruck': 'N',
@@ -136,23 +131,23 @@ def get_scheduled(dow):
     return scheduled_trucks
 
 def get_nearby(latitude, longitude, radius=900):
+    """ Query for food trucks located near user """ 
     where = fmt_where_constraint(latitude, longitude, radius)
     url_params = {
         '$where': where,
         'status': 'approved'
     }
     nearby_trucks = make_request(host=DATA_SF, path=SF_LOCATION, url_params=url_params)
-    print 
     return nearby_trucks
 
 def get_intersection(scheduled, nearby, latitude, longitude, radius=900):
+    """ Return array of food truck names that are best match for user """
     nearby_ids = [x.get('objectid') for x in nearby]
     schedule_ids = [x.get('locationid') for x in scheduled]
     intersection = [] # a list of dictionaries 
     nearby_and_scheduled = set(nearby_ids) & set(schedule_ids)
 
     if len(nearby_and_scheduled) > 0:
-        print 'There are trucks that are nearby and are scheduled for today '
         for truck in nearby:
             if truck['objectid'] in nearby_and_scheduled:
                 d = {'name': truck['applicant'],
@@ -162,7 +157,7 @@ def get_intersection(scheduled, nearby, latitude, longitude, radius=900):
                 intersection.append(d)
 
     elif len(scheduled) > 0:
-        # these are trucks that are scheduled for today but not nearby 
+        # no trucks nearby 
         for truck in scheduled:
             intersection.append({'name': truck['applicant']})
     else:
@@ -172,13 +167,15 @@ def get_intersection(scheduled, nearby, latitude, longitude, radius=900):
     return intersection
 
 def find_site(intersection):
+    """ Cross reference first by Yelp and then Google Places as fallback """
     place_url = _filter_trucks(intersection, yelp_check=True)
-    # filter again
+    
     if not place_url:
+        # no yelp listing for this food truck so check google 
         place_url = _filter_trucks(intersection, yelp_check=False)
     if place_url == []:
         #TODO: handle this edge case better
-        raise Exception('There are no trucks available for this location and time ')
+        raise Exception('No business url')
     return place_url
 
 def _filter_trucks(intersection, yelp_check):
@@ -218,6 +215,7 @@ def _filter_yelp(yelp_results, term):
         if place_url != []:
             return place_url
         # it is a valid business and this is their yelp page
+        # TODO: better name matching 
         if business.get('name') in term and not business.get('is_closed'):
             if business.get('url') is not None:
                 place_url.append(business.get('url'))
@@ -245,9 +243,8 @@ def search_google_places(latitude, longitude, name):
     return place_url
 
 
-
 def get_place_details(places_list):
-    """ Look up business details for each google place object until one with a website is found """
+    """ Look up business details for matching Google Place objects until one with a website is found """
     place_url = []
     
     for place in places_list:
