@@ -75,57 +75,6 @@ def clean_link(link):
     return link 
 
 
-def set_lookup_dow(local_now):
-    # determine what day of the week we should be searching schedule for
-    dow = local_now.strftime('%A')
-    hour = local_now.strftime('%H')
-    minute = local_now.strftime('%M')
-    # TODO: filter on open and closing time 
-    if hour > 21:
-        index = local_now.weekday() + 1 
-        dow = index_to_day_names_map[index]
-    return dow 
-
-def lookup_timezone(latitude, longitude):
-
-    params = {
-        'location': fmt_location(latitude, longitude),
-        'timestamp': calendar.timegm(time.gmtime()),
-        'key': GOOGLE_API_KEY,
-    }
-    response_object = make_request(host=GOOGLE_API, path=GOOGLE_TIMEZONE, url_params=params)
-
-    utc_now = datetime.datetime.utcnow()
-    offset = response_object.get('dstOffset', 0) + response_object.get('rawOffset', 0)
-    local_now = utc_now + relativedelta(seconds=offset)
-    return set_lookup_dow(local_now)
-
-def find_scheduled_trucks(dow):
-
-    url_params = {
-        'dayofweekstr': dow,
-        'coldtruck': 'N',
-        '$limit': '50000', # we want all of them
-    }
-    scheduled_trucks = make_request(host=DATA_SF, path=SF_SCHEDULE, url_params=url_params)
-    redis.set('scheduled', scheduled_trucks)
-    # all the location_ids for doing geosearch
-    # if len(response_object) == 0:
-        # TODO: handle no results case  
-        # pass
-
-
-    return scheduled_trucks
-
-def find_nearby_trucks(latitude, longitude, radius=900):
-    where = fmt_where_constraint(latitude, longitude, radius)
-    url_params = {
-        '$where': where,
-        'status': 'approved'
-    }
-    nearby_trucks = make_request(host=DATA_SF, path=SF_LOCATION, url_params=url_params)
-    redis.set('nearby', nearby_trucks)
-    return nearby_trucks
 
 def make_request(host, path='', url_params=None, signed=False):
     """ Make API requests and return json response as python object """
@@ -149,9 +98,156 @@ def make_request(host, path='', url_params=None, signed=False):
         response = requests.get(url, params=url_params)
     return response.json()
 
-def lookup_place_details(places_list):
-    """ Look up business details for each dictionary until one with a website is found """
-    print 'This is the places list, a list of dictionaries'
+
+
+
+def get_timezone(latitude, longitude):
+
+    params = {
+        'location': fmt_location(latitude, longitude),
+        'timestamp': calendar.timegm(time.gmtime()),
+        'key': GOOGLE_API_KEY,
+    }
+    response_object = make_request(host=GOOGLE_API, path=GOOGLE_TIMEZONE, url_params=params)
+
+    utc_now = datetime.datetime.utcnow()
+    offset = response_object.get('dstOffset', 0) + response_object.get('rawOffset', 0)
+    local_now = utc_now + relativedelta(seconds=offset)
+    return set_lookup_dow(local_now)
+
+def set_lookup_dow(local_now):
+    # determine what day of the week we should be searching schedule for
+    dow = local_now.strftime('%A')
+    hour = local_now.strftime('%H')
+    minute = local_now.strftime('%M')
+    # TODO: filter on open and closing time 
+    if hour > 21:
+        index = local_now.weekday() + 1 
+        dow = index_to_day_names_map[index]
+    return dow 
+
+def get_scheduled(dow):
+    url_params = {
+        'dayofweekstr': dow,
+        'coldtruck': 'N',
+        '$limit': 50000, # we want all of them
+    }
+    scheduled_trucks = make_request(host=DATA_SF, path=SF_SCHEDULE, url_params=url_params)
+    return scheduled_trucks
+
+def get_nearby(latitude, longitude, radius=900):
+    where = fmt_where_constraint(latitude, longitude, radius)
+    url_params = {
+        '$where': where,
+        'status': 'approved'
+    }
+    nearby_trucks = make_request(host=DATA_SF, path=SF_LOCATION, url_params=url_params)
+    print 
+    return nearby_trucks
+
+def get_intersection(scheduled, nearby, latitude, longitude, radius=900):
+    nearby_ids = [x.get('objectid') for x in nearby]
+    schedule_ids = [x.get('locationid') for x in scheduled]
+    intersection = [] # a list of dictionaries 
+    nearby_and_scheduled = set(nearby_ids) & set(schedule_ids)
+
+    if len(nearby_and_scheduled) > 0:
+        print 'There are trucks that are nearby and are scheduled for today '
+        for truck in nearby:
+            if truck['objectid'] in nearby_and_scheduled:
+                d = {'name': truck['applicant'],
+                    'latitude': truck['latitude'],
+                    'longitude': truck['longitude']
+                    }
+                intersection.append(d)
+
+    elif len(scheduled) > 0:
+        # these are trucks that are scheduled for today but not nearby 
+        for truck in scheduled:
+            intersection.append({'name': truck['applicant']})
+    else:
+        # TODO: handle edge case if there are no trucks scheduled for the day 
+        pass 
+
+    return intersection
+
+def find_site(intersection):
+    place_url = _filter_trucks(intersection, yelp_check=True)
+    # filter again
+    if not place_url:
+        place_url = _filter_trucks(intersection, yelp_check=False)
+    if place_url == []:
+        #TODO: handle this edge case better
+        raise Exception('There are no trucks available for this location and time ')
+    return place_url
+
+def _filter_trucks(intersection, yelp_check):
+    """ Find the best match for the user """
+    for truck in intersection:
+        name = truck.get('name')
+        if yelp_check is True:
+            # see if there is a Yelp entry for this business
+            place_url = search_yelp(term=name)
+        else:
+            latitude = truck.get('latitude')
+            longitude = truck.get('longitude')
+            place_url = search_google_places(latitude=latitude, longitude=longitude, name=name)
+        if place_url != []:
+            # break the loop and just return what was found 
+            return place_url[0]
+    return []
+
+def search_yelp(term, latitude=None, longitude=None, city='San Francisco', offset=0, limit=20):
+    """ Given an array of response objects, find the one with the highest yelp rating """
+    url_params = {
+        'term': term,
+        'location': city,
+        'offset': offset,
+        # 'cll': str(latitude) + ',' + str(longitude),
+        'limit': limit,
+        'sort': 0, # best matched
+    }
+    yelp_results = make_request(host=YELP_API_HOST, path=SEARCH_PATH, url_params=url_params, signed=True)
+    place_url = _filter_yelp(yelp_results, term)
+    return place_url
+
+def _filter_yelp(yelp_results, term):
+    place_url = []
+    yelp_businesses = yelp_results.get('businesses')
+    for business in yelp_businesses:
+        if place_url != []:
+            return place_url
+        # it is a valid business and this is their yelp page
+        if business.get('name') in term and not business.get('is_closed'):
+            if business.get('url') is not None:
+                place_url.append(business.get('url'))
+    return place_url 
+
+def search_google_places(latitude, longitude, name):
+    """ Get the business link for the food truck that we are looking for. Fallback if there
+    are not Yelp results """
+    location = fmt_location(latitude, longitude)
+    name = fmt_name(name)
+
+    url_params = {
+        'name': name,
+        'key': GOOGLE_API_KEY,
+        'types': 'food',
+        'location': location,
+        'radius': 3200,
+    }
+    place_url = []
+    place_objects = make_request(host=GOOGLE_API, path=GOOGLE_PLACES_SEARCH, url_params=url_params)
+    places_list = place_objects.get('results')
+
+    if len(places_list) > 0:
+        place_url = get_place_details(places_list)
+    return place_url
+
+
+
+def get_place_details(places_list):
+    """ Look up business details for each google place object until one with a website is found """
     place_url = []
     
     for place in places_list:
@@ -172,112 +268,3 @@ def lookup_place_details(places_list):
                 place_url.append(website)
 
     return place_url
-
-
-def search_google_places(latitude, longitude, name):
-    """ Get the business link for the food truck that we are looking for """
-    location = fmt_location(latitude, longitude)
-    name = fmt_name(name)
-
-    url_params = {
-        'name': name,
-        'key': GOOGLE_API_KEY,
-        'types': 'food',
-        'location': location,
-        'radius': 3200,
-    }
-    place_url = []
-    place_objects = make_request(host=GOOGLE_API, path=GOOGLE_PLACES_SEARCH, url_params=url_params)
-    places_list = place_objects.get('results')
-
-    if len(places_list) > 0:
-        place_url = lookup_place_details(places_list)
-    return place_url
-
-def filter_yelp_results(response_object, term):
-    place_url = []
-    yelp_businesses = response_object.get('businesses')
-    for business in yelp_businesses:
-        if place_url != []:
-            return place_url
-        # it is a valid business and this is their yelp address
-        if business.get('name') in term and not business.get('is_closed'):
-            if business.get('url') is not None:
-                place_url.append(business.get('url'))
-                
-    return place_url 
-
-def search_yelp(term, latitude=None, longitude=None, city='San Francisco', offset=0, limit=20):
-    """ Given an array of response objects, find the one with the highest yelp rating """
-    url_params = {
-        'term': term,
-        'location': city,
-        'offset': offset,
-        # 'cll': str(latitude) + ',' + str(longitude),
-        'limit': limit,
-        'sort': 0, # best matched
-    }
-    response_object = make_request(host=YELP_API_HOST, path=SEARCH_PATH, url_params=url_params, signed=True)
-    place_url = filter_yelp_results(response_object, term)
-    return place_url
-
-def find_truck_website(check_against_list):
-    """ Given a list of food truck names, find the best link for them via Yelp or Google """
-    for truck in check_against_list:
-        "Use Yelp API to make sure it is still open"
-        # TODO: don't hardcode city
-        place_url = search_yelp(term=truck.get('name'))
-        if place_url != []:
-            return place_url[0]
-
-    for truck in check_against_list:
-        latitude = truck.get('latitude')
-        longitude = truck.get('longitude')
-        name = truck.get('name')
-        place_url = search_google_places(latitude=latitude, longitude=longitude, name=name)
-        if place_url != []:
-            return place_url[0]
-    # not a single truck from query results has yelp profile or google places profile 
-    raise Exception('Unable to find a link for trucks')
-
-def filter_trucks():
-    """ Find the best match for the user """
-    if redis.get('nearby')
-
-
-def check_proximity(scheduled_trucks, latitude, longitude, radius=900):
-    #TODO: Increment radius until one nearby is found 
-    where = fmt_where_constraint(latitude, longitude, radius)
-    url_params = {
-        '$where': where,
-        'status': 'approved'
-    }
-    nearby_trucks = make_request(host=DATA_SF, path=SF_LOCATION, url_params=url_params)
-    print 'Nearby trucks'
-    print nearby_trucks
-    nearby_ids = [x.get('objectid') for x in nearby_trucks]
-    schedule_ids = [x.get('locationid') for x in scheduled_trucks]
-    check_against_list = [] # a list of dictionaries 
-    nearby_and_scheduled = set(nearby_ids) & set(schedule_ids)
-
-    if len(nearby_and_scheduled) > 0:
-        print 'There are trucks that are nearby and are scheduled for today '
-        for truck in nearby_trucks:
-            if truck['objectid'] in nearby_and_scheduled:
-                d = {'name': truck['applicant'],
-                    'latitude': truck['latitude'],
-                    'longitude': truck['longitude']
-                    }
-                check_against_list.append(d)
-
-    elif len(scheduled_trucks) > 0:
-        # these are trucks that are scheduled for today but not nearby 
-        for truck in scheduled_trucks:
-            check_against_list.append({'name': truck['applicant']})
-    else:
-        # handle edge case if there are no trucks scheduled for the day 
-        pass 
-
-    return check_against_list
-
-

@@ -2,9 +2,7 @@ import os
 import requests
 from flask import request, Flask, redirect
 from helpers import *
-# import keys
-# from redis import Redis
-# redis = Redis()
+
 ON_DEV = not os.environ.get('HEROKU')
 YO_API_TOKEN = os.environ.get('YO_API_TOKEN')
 
@@ -25,19 +23,12 @@ def test():
     latitude=37.7985662
     longitude=-122.454006
     
-    dow = lookup_timezone(latitude=latitude,longitude=longitude)
-    scheduled_trucks = find_scheduled_trucks(dow)
-    nearby_trucks = find_nearby_trucks(latitude, longitude)
-
-    check_against_list = check_proximity(scheduled_trucks, latitude, longitude)
-    try:
-        truck_link = find_truck_website(check_against_list)
-    except Exception:
-        # no trucks found 
-        return 'No trucks found'
-    else:
-        link = clean_link(truck_link)
-        return redirect(link, code=302)
+    dow = get_timezone(latitude=latitude,longitude=longitude)
+    scheduled = get_scheduled(dow)
+    nearby = get_nearby(latitude, longitude)
+    intersection = get_intersection(scheduled, nearby, latitude, longitude)
+    place_url = find_site(intersection)
+    return redirect(clean_link(place_url), code=302)
 
 @app.route('/yo')
 def post_yo():
@@ -45,16 +36,15 @@ def post_yo():
     # extract and parse query parameters
     username = request.args.get('username')
     location = request.args.get('location')
-    print username
-    print location 
     latitude = location.split(';')[0]
     longitude = location.split(';')[1]
-    dow = lookup_timezone(latitude=latitude, longitude=longitude)
-    scheduled_trucks = find_scheduled_trucks(dow)
-    # filtered for proximity 
-    check_against_list = check_proximity(scheduled_trucks, latitude, longitude)
-    truck_link = find_truck_website(check_against_list)
-    link = clean_link(truck_link)
+
+    dow = get_timezone(latitude=latitude, longitude=longitude)
+    scheduled = get_scheduled(dow)
+    nearby = get_nearby(latitude, longitude)
+    intersection = get_intersection(scheduled, nearby, latitude, longitude)
+    place_url = find_site(intersection)
+    link = clean_link(place_url)
     requests.post("http://api.justyo.co/yo/", data={'api_token': YO_API_TOKEN, 'username': username, 'link': link})
    
     return 'Ok'
