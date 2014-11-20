@@ -10,8 +10,8 @@ app = Flask(__name__)
 
 @app.route('/test')
 def test():
-    # test the app with hardcoded location 
-    # 24 Buchanan Street
+    # test the app from the web with hardcoded location 
+    # Duboce triangle
     latitude = 37.7697211
     longitude = -122.4265952
 
@@ -46,7 +46,6 @@ def post_yo():
     place_url = find_site(intersection)
     link = clean_link(place_url)
     requests.post("http://api.justyo.co/yo/", data={'api_token': YO_API_TOKEN, 'username': username, 'link': link})
-   
     return 'Ok'
 
 @app.route('/')
