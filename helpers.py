@@ -8,6 +8,9 @@ from dateutil.relativedelta import relativedelta
 from bs4 import BeautifulSoup
 import requests 
 import oauth2
+from store import redis
+
+
 
 DATA_SF = 'http://data.sfgov.org/resource/'
 SF_SCHEDULE = 'jjew-r69b.json'
@@ -104,21 +107,24 @@ def find_scheduled_trucks(dow):
         'coldtruck': 'N',
         '$limit': '50000', # we want all of them
     }
-    response_object = make_request(host=DATA_SF, path=SF_SCHEDULE, url_params=url_params)
+    scheduled_trucks = make_request(host=DATA_SF, path=SF_SCHEDULE, url_params=url_params)
+    redis.set('scheduled', scheduled_trucks)
     # all the location_ids for doing geosearch
-    if len(response_object) == 0:
+    # if len(response_object) == 0:
         # TODO: handle no results case  
-        pass
+        # pass
 
-    return response_object
 
-def find_nearby_trucks(latitude, longitude, radius):
+    return scheduled_trucks
+
+def find_nearby_trucks(latitude, longitude, radius=900):
     where = fmt_where_constraint(latitude, longitude, radius)
     url_params = {
         '$where': where,
         'status': 'approved'
     }
     nearby_trucks = make_request(host=DATA_SF, path=SF_LOCATION, url_params=url_params)
+    redis.set('nearby', nearby_trucks)
     return nearby_trucks
 
 def make_request(host, path='', url_params=None, signed=False):
@@ -233,6 +239,10 @@ def find_truck_website(check_against_list):
             return place_url[0]
     # not a single truck from query results has yelp profile or google places profile 
     raise Exception('Unable to find a link for trucks')
+
+def filter_trucks():
+    """ Find the best match for the user """
+    if redis.get('nearby')
 
 
 def check_proximity(scheduled_trucks, latitude, longitude, radius=900):

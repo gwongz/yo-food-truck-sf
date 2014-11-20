@@ -27,6 +27,7 @@ def test():
     
     dow = lookup_timezone(latitude=latitude,longitude=longitude)
     scheduled_trucks = find_scheduled_trucks(dow)
+    nearby_trucks = find_nearby_trucks(latitude, longitude)
 
     check_against_list = check_proximity(scheduled_trucks, latitude, longitude)
     try:
