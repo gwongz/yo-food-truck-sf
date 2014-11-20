@@ -15,7 +15,7 @@ SF_SCHEDULE = 'jjew-r69b.json'
 SF_LOCATION = 'rqzj-sfat.json'
 
 GOOGLE_API = 'https://maps.googleapis.com/'
-GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+GOOGLE_API_KEY = os.environ['GOOGLE_API_KEY']
 
 GOOGLE_TIMEZONE = 'maps/api/timezone/json'
 GOOGLE_PLACES_SEARCH = 'maps/api/place/nearbysearch/json'
@@ -47,7 +47,7 @@ def fmt_location(latitude, longitude):
     return location
 
 def fmt_where_constraint(latitude, longitude, radius):
-    """ Format the where query parameter for Soda API """
+    """ Format the where query parameter for SF Data API """
     where = ['within_circle(location,', str(latitude), ',', str(longitude), ',', str(radius), ')']
     return ''.join(where)
 

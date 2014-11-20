@@ -3,8 +3,7 @@ import requests
 from flask import request, Flask, redirect
 from helpers import *
 
-ON_DEV = not os.environ.get('HEROKU')
-YO_API_TOKEN = os.environ.get('YO_API_TOKEN')
+YO_API_TOKEN = os.environ['YO_API_TOKEN']
 
 app = Flask(__name__) 
 
