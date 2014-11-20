@@ -3,11 +3,14 @@ Jinja2==2.7.3
 MarkupSafe==0.23
 Werkzeug==0.9.6
 beautifulsoup4==4.3.2
+gnureadline==6.3.3
 gunicorn==19.1.1
 httplib2==0.9
+ipython==2.3.1
 itsdangerous==0.24
 oauth2==1.5.211
 python-dateutil==2.2
+redis==2.10.3
 requests==2.4.3
 six==1.8.0
 waitress==0.8.9
