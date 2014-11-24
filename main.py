@@ -11,8 +11,8 @@ app = Flask(__name__)
 def test():
     # test the app from the web with hardcoded location 
     # Duboce triangle
-    latitude = 37.7697211
-    longitude = -122.4265952
+    # latitude = 37.7697211
+    # longitude = -122.4265952
 
     # ferry building
     # latitude = 37.795548
@@ -21,8 +21,9 @@ def test():
     # marina
     latitude=37.7985662
     longitude=-122.454006
-    
-    dow = get_timezone(latitude=latitude,longitude=longitude)
+
+    local_now = get_local_now(latitude=latitude, longitude=longitude)
+    dow = get_dow(local_now)
     scheduled = get_scheduled(dow)
     nearby = get_nearby(latitude, longitude)
     intersection = get_intersection(scheduled, nearby, latitude, longitude)
@@ -38,7 +39,8 @@ def post_yo():
     latitude = location.split(';')[0]
     longitude = location.split(';')[1]
 
-    dow = get_timezone(latitude=latitude, longitude=longitude)
+    local_now = get_local_now(latitude=latitude, longitude=longitude)
+    dow = get_dow(local_now)
     scheduled = get_scheduled(dow)
     nearby = get_nearby(latitude, longitude)
     intersection = get_intersection(scheduled, nearby, latitude, longitude)

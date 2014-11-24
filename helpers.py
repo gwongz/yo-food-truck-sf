@@ -95,7 +95,7 @@ def make_request(host, path='', url_params=None, signed=False):
     return response.json()
 
 
-def get_timezone(latitude, longitude):
+def get_local_now(latitude, longitude):
     """ Get a user's timezone from their latitude and longitude """
     params = {
         'location': fmt_location(latitude, longitude),
@@ -107,17 +107,20 @@ def get_timezone(latitude, longitude):
     utc_now = datetime.datetime.utcnow()
     offset = response_object.get('dstOffset', 0) + response_object.get('rawOffset', 0)
     local_now = utc_now + relativedelta(seconds=offset)
-    return set_lookup_dow(local_now)
+    return local_now
 
-def set_lookup_dow(local_now):
+def get_dow(local_now):
     """ Return which day of the week we should be searching food truck schedule for """
     dow = local_now.strftime('%A')
     hour = local_now.strftime('%H')
     minute = local_now.strftime('%M')
     # TODO: filter on open and closing time 
-    if hour > 21:
-        index = local_now.weekday() + 1 
-        dow = index_to_day_names_map[index]
+    if int(hour) > 21:
+        index = local_now.weekday() 
+        if index < 6:
+            dow = index_to_day_names_map[index + 1]
+        else:
+            dow = index_to_day_names_map[0]
     return dow 
 
 def get_scheduled(dow):
